@@ -1,40 +1,83 @@
 from typing import TypeVar, Generic, Optional
 from collections import OrderedDict
-
-"""
-A Least Recently Used (LRU) cache keeps items in the cache until it reaches its size
-and/or item limit (only item in our case). In which case, it removes an item that was accessed
-least recently.
-An item is considered accessed whenever `has`, `get`, or `set` is called with its key.
-Items can also expire based on their TTL (Time To Live) if specified.
-
-Implement the LRU cache here and use the unit tests to check your implementation.
-"""
+import time
 
 # Type Variables
 KT = TypeVar('KT')  # Key Type
 VT = TypeVar('VT')  # Value Type
 
-# TODO: Implement the LRUCache class
 class LRUCache(Generic[KT, VT]):
     def __init__(self, capacity: int, ttl: Optional[float] = None):
+        """
+        Initialize LRU Cache
+        
+        Args:
+            capacity: Maximum number of items in cache
+            ttl: Time to live in seconds for cache items (None means no expiration)
+        """
         self.capacity = capacity
         self.ttl = ttl
-        self.cache = OrderedDict() # we using the OrderedDict for LNU tracking
+        self.cache = OrderedDict()
+        self.timestamps = {}  # Stores insertion timestamps for TTL handling
 
     def has(self, key: KT) -> bool:
-        return key in self.cache
+        """
+        Args:
+            key: The key to look up
+            
+        Returns:
+            True or False
+        """
+        if key in self.cache:
+            if self._is_expired(key):
+                self._remove(key)
+                return False
+            self.cache.move_to_end(key)  # Mark as recently used
+            return True
+        return False
     
     def get(self, key: KT) -> Optional[VT]:
-        if key not in self.cache:
-            return None
-        self.cache.move_to_end(key) # move to end on mostly used
-        return self.cache[key]
+        """
+        Args:
+            key: The key to look up
+            
+        Returns:
+            The value associated with the key, or None
+        """
+        if key in self.cache:
+            if self._is_expired(key):
+                self._remove(key)
+                return None
+            self.cache.move_to_end(key)  # Mark as recently used
+            return self.cache[key]
+        return None
             
     def set(self, key: KT, value: VT) -> None:
+        """        
+        Args:
+            key: The key to store
+            value: The value to store
+        """
         if key in self.cache:
-            self.cache.move_to_end(key) #update existing item's position
-        self.cache[key] = value
-        if len(self.cache) > self.capacity:
-            self.cache.popitem(last=False) # remove the least recently used item
+            self.cache.move_to_end(key)  # Mark as recently used
+        elif len(self.cache) >= self.capacity:
+            self._evict()
         
+        self.cache[key] = value
+        self.timestamps[key] = time.time()
+    
+    def _evict(self):
+        """Remove the least recently used item from the cache."""
+        oldest_key, _ = self.cache.popitem(last=False)
+        self.timestamps.pop(oldest_key, None)
+    
+    def _is_expired(self, key: KT) -> bool:
+        """Check if a key has expired based on TTL."""
+        if self.ttl is None:
+            return False
+        return (time.time() - self.timestamps.get(key, 0)) > self.ttl
+    
+    def _remove(self, key: KT):
+        """Remove a key from the cache and timestamps."""
+        self.cache.pop(key, None)
+        self.timestamps.pop(key, None)
