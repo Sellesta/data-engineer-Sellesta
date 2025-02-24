@@ -1,0 +1,51 @@
+name: test
+
+on: [push, pull_request]
+
+permissions:
+    contents: read
+    pull-requests: read
+    issues: write
+    checks: write
+
+jobs:
+    automated-tests:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+
+            - name: Set up Python
+              uses: actions/setup-python@v4
+              with:
+                  python-version: "3.12"
+
+            - name: Install dependencies and run tests
+              run: make setup
+              continue-on-error: true
+
+            - name: Run tests
+              run: make test-junit
+              continue-on-error: true
+
+            - name: Report LRU test results
+              uses: mikepenz/action-junit-report@v5
+              if: success() || failure()
+              with:
+                  report_paths: "**/test-lru.xml"
+                  check_name: "LRU Tests Report"
+
+            - name: Report Array test results
+              uses: mikepenz/action-junit-report@v5
+              if: success() || failure()
+              with:
+                  report_paths: "**/test-array.xml"
+                  check_name: "Array Tests Report"
+
+            - name: Report Substring test results
+              uses: mikepenz/action-junit-report@v5
+              if: success() || failure()
+              with:
+                  report_paths: "**/test-substring.xml"
+                  check_name: "Substring Tests Report"
